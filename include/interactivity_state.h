@@ -38,6 +38,11 @@ struct StateBeepConfig {
         gapMs(gap) {}
 };
 
+// Typing click, and the button click two semitones above it.
+const uint16_t kTypingClickHz = 4000;
+const uint16_t kButtonClickHz = 4490;
+const uint16_t kClickDurationMs = 4;
+
 struct StateBeepSettings {
   StateBeepConfig ready;
   StateBeepConfig frontPending;
@@ -50,20 +55,20 @@ struct StateBeepSettings {
   StateBeepConfig topLong;
   StateBeepConfig both;
   StateBeepConfig bothLong;
-    StateBeepConfig resetConfirmation;
+  StateBeepConfig resetConfirmation;
 
   StateBeepSettings()
       : ready(),
         frontPending(),
-        front(true, 2600, 120, 1),
-        frontDouble(true, 2600, 110, 2, 30),
-        frontLong(true, 2600, 110, 2, 30),
+        front(),
+        frontDouble(true, kButtonClickHz, kClickDurationMs, 2, 30),
+        frontLong(true, kButtonClickHz, kClickDurationMs, 1),
         topPending(),
-        top(true, 2600, 120, 1),
-        topDouble(true, 2600, 110, 2, 30),
-        topLong(true, 2600, 110, 2, 30),
-        both(true, 2600, 120, 1),
-        bothLong(true, 2600, 110, 2, 30),
+        top(),
+        topDouble(true, kButtonClickHz, kClickDurationMs, 2, 30),
+        topLong(true, kButtonClickHz, kClickDurationMs, 1),
+        both(true, kButtonClickHz, kClickDurationMs, 3, 30),
+        bothLong(true, kButtonClickHz, kClickDurationMs, 3, 30),
         resetConfirmation() {}
 };
 
@@ -96,6 +101,7 @@ struct InteractivityState {
   bool topLongPressActive = false;
   uint16_t frontDoubleTapWindowMs = 300;
   uint16_t topDoubleTapWindowMs = 300;
+  bool soundEnabled = true;
 };
 
 extern InteractivityState interactivityState;
