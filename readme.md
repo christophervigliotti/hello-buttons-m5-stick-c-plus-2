@@ -57,18 +57,30 @@ highlighted while waiting for the second. There is no blinking. The second
 highlight remains for 350 ms after release. Calibration text, the
 `helloButtons` title, and its ready dots use a 25 ms character interval.
 The red marker represents Top; the green marker represents Front. Ready
-markers are periods; active markers are hollow or filled arrows.
+markers are periods, short presses show hollow arrows, long presses show filled
+arrows, and double taps show two filled arrows with reduced overlap.
+Calibration taps also update their button's marker; it returns to a
+period on release. Marker centers stay fixed across these states.
+
+Calibration and reset confirmation use full-screen redraw views. Button input
+uses a three-line history view: each new status is added on the bottom row,
+older rows move upward and turn gray, and the newest row stays white. When
+leaving a redraw view for button history, the redraw screen is cleared first.
+Countdown dots remain attached to their message when it scrolls. Long messages
+wrap at the normal text size. Pending messages resolve in place: `top?` becomes
+`top`, `top long`, or `top double` (and likewise for Front); the normal
+animated countdown dots then append the ellipsis.
 
 | State | Text | Markers | Default beep |
 | --- | --- | --- | --- |
 | `Ready` | `ready` | Both periods | Silent |
 | `FrontPending` | `front?` | Green hollow right arrow | Silent |
 | `Front` | `front` | Green hollow right arrow | One 2600 Hz pulse |
-| `FrontDouble` | `front double` | Green hollow right arrow | Two 2600 Hz pulses |
+| `FrontDouble` | `front double` | Green filled double right arrows | Two 2600 Hz pulses |
 | `FrontLong` | `front long` | Green filled right arrow | Two 2600 Hz pulses |
 | `TopPending` | `top?` | Red hollow left arrow | Silent |
 | `Top` | `top` | Red hollow left arrow | One 2600 Hz pulse |
-| `TopDouble` | `top double` | Red hollow left arrow | Two 2600 Hz pulses |
+| `TopDouble` | `top double` | Red filled double left arrows | Two 2600 Hz pulses |
 | `TopLong` | `top long` | Red filled left arrow | Two 2600 Hz pulses |
 | `Both` | `both` | Each marker reflects its button | One 2600 Hz pulse |
 | `BothLong` | `both long` | Both filled arrows | Two 2600 Hz pulses |

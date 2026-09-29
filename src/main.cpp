@@ -43,8 +43,19 @@ struct ResetPrompt {
   uint32_t firstReleaseAtMs = 0;
 };
 
+enum class ScreenViewMode { Redraw, NewLine };
+
+struct StatusLine {
+  String text;
+  String dots;
+  size_t visibleCharacters = 0;
+};
+
 HeaderTyping headerTyping;
 ResetPrompt resetPrompt;
+ScreenViewMode screenViewMode = ScreenViewMode::Redraw;
+StatusLine statusLines[3];
+size_t statusLineCount = 0;
 
 void doResetApp();
 void askResetApp();
@@ -67,6 +78,17 @@ void drawButtonIndicator(int x, uint16_t color, IndicatorState state, bool point
   if (state == IndicatorState::Ready) {
     M5.Lcd.setTextColor(color, BLACK);
     M5.Lcd.drawString(".", x, kTitleY);
+  } else if (state == IndicatorState::DoublePressed) {
+    const int centerY = kTitleY + 9;
+    const int radius = 4;
+    const int direction = pointRight ? 1 : -1;
+    for (int offset : {-4, 4}) {
+      const int arrowCenterX = x + direction * offset;
+      const int tipX = arrowCenterX + direction * radius;
+      const int baseX = arrowCenterX - direction * radius;
+      M5.Lcd.fillTriangle(tipX, centerY, baseX, centerY - radius,
+                          baseX, centerY + radius, color);
+    }
   } else {
     const int centerY = kTitleY + 9;
     const int radius = 6;
@@ -82,8 +104,16 @@ void drawButtonIndicator(int x, uint16_t color, IndicatorState state, bool point
   }
 }
 
-void drawScreenFrame() {
-  M5.Lcd.fillScreen(BLACK);
+void drawScreenFrame(bool clearScreen = true) {
+  const int leftIndicatorX = 22;
+  const int rightIndicatorX = M5.Lcd.width() - leftIndicatorX;
+  if (clearScreen) {
+    screenViewMode = ScreenViewMode::Redraw;
+    M5.Lcd.fillScreen(BLACK);
+  } else {
+    M5.Lcd.fillRect(leftIndicatorX - 10, kTitleY - 2, 20, 22, BLACK);
+    M5.Lcd.fillRect(rightIndicatorX - 10, kTitleY - 2, 20, 22, BLACK);
+  }
   M5.Lcd.setTextColor(0x7A7A7A, BLACK);
   M5.Lcd.setTextSize(2);
   M5.Lcd.setTextDatum(TL_DATUM);
@@ -105,8 +135,6 @@ void drawScreenFrame() {
   const int titleX = (M5.Lcd.width() - M5.Lcd.textWidth(kAppTitle)) / 2;
   M5.Lcd.drawString(visibleTitle, titleX, kTitleY);
 
-  const int leftIndicatorX = 22;
-  const int rightIndicatorX = M5.Lcd.width() - leftIndicatorX;
   if (headerTyping.visibleTokens > titleLength) {
     drawButtonIndicator(leftIndicatorX, kRedIndicator, interactivityState.circleIndicators.top, false);
   }
@@ -115,6 +143,120 @@ void drawScreenFrame() {
   }
 
   M5.Lcd.drawFastHLine(0, kHeaderLineY, M5.Lcd.width(), 0x7A7A7A);
+}
+
+void enterNewLineView() {
+  if (screenViewMode == ScreenViewMode::NewLine) {
+    return;
+  }
+  drawScreenFrame();
+  screenViewMode = ScreenViewMode::NewLine;
+  statusLineCount = 0;
+}
+
+void renderNewLineView(const String& dots = "") {
+  if (screenViewMode != ScreenViewMode::NewLine) {
+    return;
+  }
+
+  drawScreenFrame(false);
+  M5.Lcd.fillRect(0, kHeaderLineY + 1, M5.Lcd.width(), M5.Lcd.height() - kHeaderLineY - 1, BLACK);
+  M5.Lcd.setTextDatum(TL_DATUM);
+  M5.Lcd.setTextSize(2);
+  if (statusLineCount > 0 && !dots.isEmpty()) {
+    statusLines[statusLineCount - 1].dots = dots;
+  }
+
+  String renderedLines[9];
+  bool renderedLineIsCurrent[9];
+  size_t renderedLineCount = 0;
+  const int availableWidth = M5.Lcd.width() - kContentLeftX * 2;
+  for (size_t index = 0; index < statusLineCount; ++index) {
+    const bool isCurrentLine = index == statusLineCount - 1;
+    String remaining = statusLines[index].text.substring(0, statusLines[index].visibleCharacters) +
+                       statusLines[index].dots;
+    while (!remaining.isEmpty() && renderedLineCount < 9) {
+      size_t fitCharacters = remaining.length();
+      while (fitCharacters > 1 && M5.Lcd.textWidth(remaining.substring(0, fitCharacters).c_str()) > availableWidth) {
+        --fitCharacters;
+      }
+
+      size_t breakAt = fitCharacters;
+      if (fitCharacters < remaining.length()) {
+        const int lastSpace = remaining.substring(0, fitCharacters + 1).lastIndexOf(' ');
+        if (lastSpace > 0) {
+          breakAt = static_cast<size_t>(lastSpace);
+        }
+      }
+
+      renderedLines[renderedLineCount] = remaining.substring(0, breakAt);
+      renderedLineIsCurrent[renderedLineCount] = isCurrentLine;
+      ++renderedLineCount;
+      remaining = remaining.substring(breakAt);
+      while (!remaining.isEmpty() && remaining[0] == ' ') {
+        remaining.remove(0, 1);
+      }
+    }
+  }
+
+  const size_t firstVisibleLine = renderedLineCount > 3 ? renderedLineCount - 3 : 0;
+  for (size_t index = firstVisibleLine; index < renderedLineCount; ++index) {
+    M5.Lcd.setTextColor(renderedLineIsCurrent[index] ? WHITE : 0x7BEF, BLACK);
+    M5.Lcd.drawString(renderedLines[index], kContentLeftX,
+                      kContentFirstLineY + (index - firstVisibleLine) * 24);
+  }
+  M5.Lcd.setTextSize(2);
+}
+
+void appendStatusLine(const String& message) {
+  enterNewLineView();
+  if (statusLineCount == 3) {
+    for (size_t index = 1; index < 3; ++index) {
+      statusLines[index - 1] = statusLines[index];
+    }
+    --statusLineCount;
+  }
+  statusLines[statusLineCount].text = message;
+  statusLines[statusLineCount].dots = "";
+  statusLines[statusLineCount].visibleCharacters = interactivityState.textIndicators.visibleCharacters;
+  ++statusLineCount;
+  renderNewLineView();
+}
+
+bool resolvePendingStatusLine(const String& resolvedText) {
+  if (screenViewMode != ScreenViewMode::NewLine || statusLineCount == 0) {
+    return false;
+  }
+
+  StatusLine& currentLine = statusLines[statusLineCount - 1];
+  String mergedText;
+  if (currentLine.text == "top?" &&
+      (resolvedText == "top" || resolvedText == "top long" || resolvedText == "top double")) {
+    mergedText = resolvedText;
+  } else if (currentLine.text == "front?" &&
+             (resolvedText == "front" || resolvedText == "front long" || resolvedText == "front double")) {
+    mergedText = resolvedText;
+  } else {
+    return false;
+  }
+
+  const size_t preservedCharacters = min(currentLine.visibleCharacters,
+                                          resolvedText.startsWith("front") ? 5u : 3u);
+  currentLine.text = mergedText;
+  currentLine.visibleCharacters = preservedCharacters;
+  interactivityState.textIndicators.message = mergedText;
+  interactivityState.textIndicators.visibleCharacters = preservedCharacters;
+  interactivityState.textIndicators.lastCharacterAtMs = millis();
+  renderNewLineView();
+  return true;
+}
+
+void updateCurrentStatusLine() {
+  if (screenViewMode != ScreenViewMode::NewLine || statusLineCount == 0) {
+    return;
+  }
+  statusLines[statusLineCount - 1].visibleCharacters = interactivityState.textIndicators.visibleCharacters;
+  renderNewLineView();
 }
 
 bool isHeaderTypingComplete() {
@@ -224,23 +366,6 @@ void showReadyState() {
   interactivityState.topLongPressActive = false;
   setTextIndicatorMessage("ready", stateChanged);
   showTextIndicator();
-}
-
-void showTextIndicatorWithDots(uint32_t elapsedMs) {
-  const uint32_t dotCount = min<uint32_t>(3u, elapsedMs / kButtonPulseIntervalMs);
-
-  String dots;
-  for (uint32_t i = 0; i < dotCount; ++i) {
-    dots += ".";
-  }
-
-  const String visibleMessage = interactivityState.textIndicators.message.substring(
-      0, interactivityState.textIndicators.visibleCharacters);
-  String displayLine = visibleMessage + dots;
-  drawScreenFrame();
-  M5.Lcd.setTextColor(WHITE, BLACK);
-  M5.Lcd.setTextDatum(TL_DATUM);
-  M5.Lcd.drawString(displayLine, kContentLeftX, kContentFirstLineY);
 }
 
 void showCalibrationPrompt(const String& instruction,
@@ -435,6 +560,22 @@ uint16_t calibrateDoubleTapWindow(ButtonType& button, ButtonType& otherButton, c
     (void)otherButton.wasPressed();
     (void)otherButton.wasReleased();
     (void)otherButton.wasHold();
+
+    IndicatorState& calibrationIndicator = buttonName[0] == 'f'
+                                               ? interactivityState.circleIndicators.front
+                                               : interactivityState.circleIndicators.top;
+    if (wasPressed) {
+      calibrationIndicator = IndicatorState::Pressed;
+      shouldRedraw = true;
+    }
+    if (wasHeld) {
+      calibrationIndicator = IndicatorState::LongPressed;
+      shouldRedraw = true;
+    }
+    if (wasReleased) {
+      calibrationIndicator = IndicatorState::Ready;
+      shouldRedraw = true;
+    }
 
     if (!isHeaderTypingComplete()) {
       showCalibrationPrompt(instruction, progress, highlightedTap, 0, 0);
@@ -807,9 +948,13 @@ void loop() {
   } else if (frontDoubleTapResolved) {
     nextState = InteractivityStateKind::FrontDouble;
     nextMessage = "front double";
+    interactivityState.circleIndicators.front = IndicatorState::DoublePressed;
+    interactivityState.circleIndicators.top = IndicatorState::Ready;
   } else if (topDoubleTapResolved) {
     nextState = InteractivityStateKind::TopDouble;
     nextMessage = "top double";
+    interactivityState.circleIndicators.top = IndicatorState::DoublePressed;
+    interactivityState.circleIndicators.front = IndicatorState::Ready;
   } else if (frontSingleTapResolved) {
     nextState = InteractivityStateKind::Front;
     nextMessage = "front";
@@ -829,42 +974,66 @@ void loop() {
 
   const bool stateChanged = setInteractivityState(nextState);
   const bool pressEvent = frontWasPressed || topWasPressed;
+  const bool secondTapStarted = (frontWasPressed && frontTap.secondTapInProgress) ||
+                                (topWasPressed && topTap.secondTapInProgress);
   if (pressEvent && !stateChanged) {
     playStateBeep(interactivityState.state);
   }
-  setTextIndicatorMessage(nextMessage, pressEvent);
+  setTextIndicatorMessage(nextMessage, pressEvent && !secondTapStarted);
+  const bool statusLineChanged = stateChanged || (pressEvent && !secondTapStarted);
+  const bool pendingLineResolved = stateChanged && resolvePendingStatusLine(nextMessage);
+  if (statusLineChanged && !pendingLineResolved) {
+    appendStatusLine(interactivityState.textIndicators.message);
+  }
   if (stateChanged || pressEvent) {
     statusCountdownStarted = false;
   }
 
   const bool textAdvanced = advanceTextIndicatorTyping();
+  if (textAdvanced && !statusLineChanged) {
+    updateCurrentStatusLine();
+  }
+
+  static uint32_t lastDisplayedDotCount = UINT32_MAX;
   if (statusNeedsReset) {
     if (!frontPressed && !topPressed) {
       const bool tapPending = frontTap.waitingForSecondTap || frontTap.pressInProgress ||
                               topTap.waitingForSecondTap || topTap.pressInProgress;
       if (tapPending || isTextIndicatorTyping()) {
         statusCountdownStarted = false;
-        showTextIndicator();
-      } else if (!statusCountdownStarted) {
-        lastStatusChangeMs = millis();
-        statusCountdownStarted = true;
-      }
+      } else {
+        if (!statusCountdownStarted) {
+          lastStatusChangeMs = millis();
+          statusCountdownStarted = true;
+          lastDisplayedDotCount = UINT32_MAX;
+        }
 
-      if (!isTextIndicatorTyping()) {
         const uint32_t elapsedMs = millis() - lastStatusChangeMs;
         if (elapsedMs >= kStatusResetDelayMs) {
-          showReadyState();
+          setInteractivityState(InteractivityStateKind::Ready);
+          interactivityState.circleIndicators.front = IndicatorState::Ready;
+          interactivityState.circleIndicators.top = IndicatorState::Ready;
+          interactivityState.frontLongPressActive = false;
+          interactivityState.topLongPressActive = false;
+          interactivityState.textIndicators.message = "ready";
+          interactivityState.textIndicators.visibleCharacters = String("ready").length();
+          appendStatusLine("ready");
           statusNeedsReset = false;
           statusCountdownStarted = false;
+          lastDisplayedDotCount = UINT32_MAX;
         } else {
-          showTextIndicatorWithDots(elapsedMs);
+          const uint32_t dotCount = min<uint32_t>(3u, elapsedMs / kButtonPulseIntervalMs);
+          if (dotCount != lastDisplayedDotCount) {
+            String dots;
+            for (uint32_t index = 0; index < dotCount; ++index) {
+              dots += ".";
+            }
+            renderNewLineView(dots);
+            lastDisplayedDotCount = dotCount;
+          }
         }
       }
-    } else {
-      showTextIndicator();
     }
-  } else if (textAdvanced) {
-    showTextIndicator();
   }
 
   delay(20);

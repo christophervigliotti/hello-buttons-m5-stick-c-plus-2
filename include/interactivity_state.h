@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-enum class IndicatorState { Ready, Pressed, LongPressed };
+enum class IndicatorState { Ready, Pressed, LongPressed, DoublePressed };
 enum class CircleIndicatorMode { Sticky, Instant };
 enum class InteractivityStateKind {
   Ready,
