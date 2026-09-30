@@ -24,7 +24,7 @@ class ButtonDemoView : public stickui::View {
     Side,
     SideDouble,
     SideLong,
-    Both  // both held long is handled by the App, which opens the reset scene
+    Both  // both held long is handled by the Stage, which opens the reset scene
   };
 
   struct TapTracker {

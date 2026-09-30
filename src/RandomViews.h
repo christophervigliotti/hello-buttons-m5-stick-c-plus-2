@@ -3,7 +3,7 @@
 #include <StickUI.h>
 
 // Full-screen alternative views for the main scene. Each types a random pick with clicks
-// when it appears; the App has already rotated the screen for the held orientation.
+// when it appears; the Stage has already rotated the screen for the held orientation.
 
 // "cat-random": an ASCII cat with a random cat sound under it.
 class CatRandomView : public stickui::View {

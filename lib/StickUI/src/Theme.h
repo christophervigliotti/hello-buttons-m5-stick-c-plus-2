@@ -36,7 +36,7 @@ const uint16_t kDoubleTapAllowanceMs = 100;
 const uint16_t kMaximumCalibrationGapMs = 1000;
 
 // Orientation. "Up" is the normal landscape orientation (kScreenRotation). Scenes decide what
-// to show in the other three (see Scenes.h).
+// to show in the other three (see Stage.h).
 const uint8_t kScreenRotation = 1;
 const uint8_t kUpsideDownRotation = 3;
 const uint8_t kPortraitRotationForPositiveY = 0;  // swap these two if portrait views are upside down

@@ -32,7 +32,7 @@ ChoiceResult processChoiceTaps(ChoicePrompt& prompt, const ButtonInput& input, b
 
   if (prompt.waitingForSecondTap &&
       nowMs - prompt.firstReleaseAtMs >= doubleTapWindowMs(prompt.firstTapButton)) {
-    prompt.yesSelected = !prompt.yesSelected;
+    prompt.selectNext();
     prompt.waitingForSecondTap = false;
     redraw = true;
   }
@@ -41,7 +41,7 @@ ChoiceResult processChoiceTaps(ChoicePrompt& prompt, const ButtonInput& input, b
     prompt.pressInProgress = false;
     prompt.secondTapInProgress = false;
     if (prompt.waitingForSecondTap) {
-      prompt.yesSelected = !prompt.yesSelected;
+      prompt.selectNext();
       redraw = true;
     }
     prompt.waitingForSecondTap = false;
@@ -66,7 +66,7 @@ ChoiceResult processChoiceTaps(ChoicePrompt& prompt, const ButtonInput& input, b
       prompt.pressedButton = tappedButton;
     } else {
       if (prompt.waitingForSecondTap) {
-        prompt.yesSelected = !prompt.yesSelected;
+        prompt.selectNext();
         redraw = true;
         prompt.waitingForSecondTap = false;
       }
@@ -82,7 +82,7 @@ ChoiceResult processChoiceTaps(ChoicePrompt& prompt, const ButtonInput& input, b
     prompt.pressInProgress = false;
     if (prompt.secondTapInProgress) {
       playPattern(buttonSounds.doubleTap);
-      return prompt.yesSelected ? ChoiceResult::Yes : ChoiceResult::No;
+      return ChoiceResult::Chosen;
     }
     prompt.waitingForSecondTap = true;
     prompt.firstTapButton = prompt.pressedButton;

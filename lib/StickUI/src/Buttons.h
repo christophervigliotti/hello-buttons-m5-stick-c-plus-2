@@ -46,7 +46,7 @@ struct ButtonState {
   bool wasHeld = false;  // the long-press threshold was reached this frame
 };
 
-// Everything a view needs to know about the buttons this frame (filled in by the App).
+// Everything a view needs to know about the buttons this frame (filled in by the Stage).
 struct ButtonInput {
   ButtonState face;
   ButtonState side;

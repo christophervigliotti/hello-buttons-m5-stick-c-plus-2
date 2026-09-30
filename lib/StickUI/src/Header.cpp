@@ -11,7 +11,7 @@ Indicators indicators;
 
 namespace {
 
-const char* appTitle = "";
+const char* title = "";
 
 struct HeaderTyping {
   size_t visibleTokens = 0;
@@ -20,7 +20,7 @@ struct HeaderTyping {
 } headerTyping;
 
 size_t totalHeaderTokens() {
-  return strlen(appTitle) + 2;  // title characters, then the two indicators
+  return strlen(title) + 2;  // title characters, then the two indicators
 }
 
 void drawButtonIndicator(int x, uint16_t color, IndicatorState state, bool pointRight) {
@@ -55,8 +55,16 @@ void drawButtonIndicator(int x, uint16_t color, IndicatorState state, bool point
 
 }  // namespace
 
-void setAppTitle(const char* title) {
-  appTitle = title;
+void setAppTitle(const char* newTitle) {
+  title = newTitle;
+}
+
+const char* appTitle() {
+  return title;
+}
+
+void restartHeaderTyping() {
+  headerTyping = HeaderTyping{};
 }
 
 void drawScreenFrame(bool clearScreen) {
@@ -72,7 +80,7 @@ void drawScreenFrame(bool clearScreen) {
   M5.Lcd.setTextColor(kHeaderColor, BLACK);
   M5.Lcd.setTextSize(kTextSize);
   M5.Lcd.setTextDatum(TL_DATUM);
-  const size_t titleLength = strlen(appTitle);
+  const size_t titleLength = strlen(title);
   const uint32_t nowMs = millis();
   if (!headerTyping.started) {
     headerTyping.started = true;
@@ -90,8 +98,8 @@ void drawScreenFrame(bool clearScreen) {
   }
 
   const size_t visibleTitleCharacters = min(headerTyping.visibleTokens, titleLength);
-  const String visibleTitle = String(appTitle).substring(0, visibleTitleCharacters);
-  const int titleX = (M5.Lcd.width() - M5.Lcd.textWidth(appTitle)) / 2;
+  const String visibleTitle = String(title).substring(0, visibleTitleCharacters);
+  const int titleX = (M5.Lcd.width() - M5.Lcd.textWidth(title)) / 2;
   M5.Lcd.drawString(visibleTitle, titleX, kTitleY);
 
   if (headerTyping.visibleTokens > titleLength) {

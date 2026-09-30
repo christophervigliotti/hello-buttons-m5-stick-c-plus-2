@@ -1,16 +1,18 @@
-#include "Scenes.h"
+#include "Stage.h"
 
 #include <M5Unified.h>
 
 #include "Header.h"
 #include "LogView.h"
+#include "Playbill.h"
+#include "ResetScene.h"
 #include "Sound.h"
 #include "StickUI.h"
 #include "Text.h"
 
 namespace stickui {
 
-App app;
+Stage stage;
 
 // Scene
 
@@ -45,7 +47,7 @@ size_t Scene::indexOf(const View& view) const {
 void Scene::goToView(const char* name) {
   for (size_t index = 0; index < viewCount_; ++index) {
     if (strcmp(views_[index]->name(), name) == 0) {
-      app.requestView(*this, index);
+      stage.requestView(*this, index);
       return;
     }
   }
@@ -53,36 +55,77 @@ void Scene::goToView(const char* name) {
 
 void Scene::goToNextView() {
   if (currentIndex_ + 1 < viewCount_) {
-    app.requestView(*this, currentIndex_ + 1);
+    stage.requestView(*this, currentIndex_ + 1);
   } else if (next_ != nullptr) {
-    app.goToScene(*next_);
+    stage.goToScene(*next_);
+  } else {
+    stage.sceneFinished(*this);
   }
 }
 
-// App
+// Show
 
-App& App::addScene(Scene& scene) {
+Show& Show::addScene(Scene& scene) {
   if (sceneCount_ < kMaxScenes) {
     scenes_[sceneCount_++] = &scene;
+    if (opening_ == nullptr) {
+      opening_ = &scene;
+    }
   }
   return *this;
 }
 
-App& App::setResetScene(Scene& scene) {
+Show& Show::opensWith(Scene& scene) {
+  opening_ = &scene;
+  return *this;
+}
+
+Scene* Show::findScene(const char* name) {
+  for (size_t index = 0; index < sceneCount_; ++index) {
+    if (strcmp(scenes_[index]->name(), name) == 0) {
+      return scenes_[index];
+    }
+  }
+  return nullptr;
+}
+
+// Stage
+
+Stage& Stage::addShow(Show& show) {
+  if (showCount_ < kMaxShows) {
+    shows_[showCount_++] = &show;
+  }
+  return *this;
+}
+
+Stage& Stage::setConfigureScene(Scene& scene) {
+  configureScene_ = &scene;
+  return *this;
+}
+
+Stage& Stage::setResetScene(Scene& scene) {
   resetScene_ = &scene;
   return *this;
 }
 
-void App::start(const char* title, Scene& firstScene) {
-  begin(title);
+void Stage::start(const char* title) {
+  begin();
+  title_ = title;
+  setAppTitle(title_);
+  if (resetScene_ == nullptr) {
+    resetScene_ = &resetAppScene();
+  }
   showFullScreenMessage("loading", kLoadingScreenMs);
-  current_ = &firstScene;
-  current_->currentIndex_ = 0;
-  showCurrentView();
-  applyOrientation();
+
+  if (configureScene_ != nullptr) {
+    goToScene(*configureScene_);
+  } else {
+    afterConfigure();
+  }
+  applyPending();
 }
 
-void App::update() {
+void Stage::update() {
   M5.update();
   const ButtonInput input = readInput();
 
@@ -106,34 +149,78 @@ void App::update() {
   delay(displayed_->frameDelayMs());
 }
 
-void App::goToScene(Scene& scene) {
+void Stage::openShow(Show& show) {
+  currentShow_ = &show;
+  setTitle(show.title());
+  goToScene(show.openingScene());
+}
+
+void Stage::openPlaybill() {
+  currentShow_ = nullptr;
+  setTitle(title_);
+  goToScene(playbillScene());
+}
+
+void Stage::goToScene(Scene& scene) {
   pending_ = Pending::EnterScene;
   pendingScene_ = &scene;
 }
 
-void App::goToScene(const char* name) {
-  for (size_t index = 0; index < sceneCount_; ++index) {
-    if (strcmp(scenes_[index]->name(), name) == 0) {
-      goToScene(*scenes_[index]);
+void Stage::goToScene(const char* name) {
+  if (currentShow_ != nullptr) {
+    Scene* scene = currentShow_->findScene(name);
+    if (scene != nullptr) {
+      goToScene(*scene);
+      return;
+    }
+  }
+  for (Scene* scene : {configureScene_, resetScene_, &playbillScene()}) {
+    if (scene != nullptr && strcmp(scene->name(), name) == 0) {
+      goToScene(*scene);
       return;
     }
   }
 }
 
-void App::returnToPreviousScene() {
+void Stage::returnToPreviousScene() {
   if (previous_ != nullptr) {
     pending_ = Pending::ResumeScene;
     pendingScene_ = previous_;
   }
 }
 
-void App::requestView(Scene& scene, size_t index) {
+void Stage::requestView(Scene& scene, size_t index) {
   pending_ = Pending::EnterView;
   pendingScene_ = &scene;
   pendingIndex_ = index;
 }
 
-ButtonInput App::readInput() {
+void Stage::sceneFinished(Scene& scene) {
+  if (&scene == configureScene_) {
+    afterConfigure();
+  } else if (showCount_ > 1) {
+    openPlaybill();
+  }
+}
+
+void Stage::afterConfigure() {
+  if (showCount_ > 1) {
+    openPlaybill();
+  } else if (showCount_ == 1) {
+    openShow(*shows_[0]);
+  }
+}
+
+// Changes the header title; a different title types in again when the next screen draws.
+void Stage::setTitle(const char* title) {
+  if (strcmp(appTitle(), title) == 0) {
+    return;
+  }
+  setAppTitle(title);
+  restartHeaderTyping();
+}
+
+ButtonInput Stage::readInput() {
   ButtonInput input;
   for (Button button : {Button::Face, Button::Side}) {
     m5::Button_Class& hardware = hardwareButton(button);
@@ -162,7 +249,7 @@ ButtonInput App::readInput() {
   return input;
 }
 
-void App::applyOrientation() {
+void Stage::applyOrientation() {
   const Orientation held = orientation_.held();
   View* alternative = held == Orientation::Up ? nullptr : current_->alternativeFor(held);
   if (alternative != nullptr) {
@@ -175,7 +262,7 @@ void App::applyOrientation() {
   }
 }
 
-void App::applyPending() {
+void Stage::applyPending() {
   const Pending pending = pending_;
   pending_ = Pending::None;
   switch (pending) {
@@ -204,14 +291,14 @@ void App::applyPending() {
   }
 }
 
-void App::showCurrentView() {
+void Stage::showCurrentView() {
   M5.Lcd.setRotation(kScreenRotation);
   showingAlternative_ = false;
   displayed_ = &current_->currentView();
   displayed_->onEnter();
 }
 
-void App::resumeCurrentView(ResumeReason reason) {
+void Stage::resumeCurrentView(ResumeReason reason) {
   M5.Lcd.setRotation(kScreenRotation);
   showingAlternative_ = false;
   displayed_ = &current_->currentView();

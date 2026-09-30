@@ -24,6 +24,10 @@ struct Indicators {
 extern Indicators indicators;
 
 void setAppTitle(const char* title);
+const char* appTitle();
+
+// Makes the title and indicators type in again on the next drawScreenFrame(true).
+void restartHeaderTyping();
 
 // Draws the title, both indicators and the header line. The title and indicators type in
 // (with clicks) the first time. clearScreen=true starts a fresh full-screen redraw.

@@ -4,7 +4,7 @@ namespace stickui {
 
 Settings settings;
 
-void begin(const char* appTitle) {
+void begin() {
   auto cfg = M5.config();
   M5.begin(cfg);
 
@@ -12,7 +12,6 @@ void begin(const char* appTitle) {
   beginSound();
   M5.BtnA.setHoldThresh(kLongPressThresholdMs);
   M5.BtnB.setHoldThresh(kLongPressThresholdMs);
-  setAppTitle(appTitle);
 }
 
 }  // namespace stickui

@@ -169,15 +169,14 @@ void ConfigureSoundView::draw(size_t visibleCharacters, bool clearScreen) {
   const String question = kSoundQuestion;
   drawCenteredLine(label_, takeVisible(remaining, label_.length()), contentLineY(0), kGreyText);
   drawCenteredLine(question, takeVisible(remaining, question.length()), contentLineY(1), WHITE);
-  drawChoiceLine("yes", "no", prompt_.yesSelected, remaining, contentLineY(2));
+  drawChoiceLine("yes", "no", prompt_.selectedIndex == 0, remaining, contentLineY(2));
 }
 
 void ConfigureSoundView::update(const ButtonInput& input) {
   bool redraw = false;
-  const ChoiceResult result = processChoiceTaps(prompt_, input, redraw);
-  if (result != ChoiceResult::None) {
+  if (processChoiceTaps(prompt_, input, redraw) == ChoiceResult::Chosen) {
     delay(kAfterUserInputDelayMs);
-    settings.soundEnabled = result == ChoiceResult::Yes;
+    settings.soundEnabled = prompt_.selectedIndex == 0;
     scene().goToNextView();
     return;
   }
@@ -188,6 +187,22 @@ void ConfigureSoundView::update(const ButtonInput& input) {
   if (redraw) {
     draw(typing_.visible(), false);
   }
+}
+
+Scene& configureAppScene(bool includeSoundView) {
+  static ConfigureButtonView configureFace(Button::Face);
+  static ConfigureButtonView configureSide(Button::Side);
+  static ConfigureSoundView configureSound;
+  static Scene scene("configure-app");
+  static bool built = false;
+  if (!built) {
+    built = true;
+    scene.addView(configureFace).addView(configureSide);
+    if (includeSoundView) {
+      scene.addView(configureSound);
+    }
+  }
+  return scene;
 }
 
 }  // namespace stickui

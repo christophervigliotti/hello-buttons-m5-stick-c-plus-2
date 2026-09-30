@@ -3,12 +3,16 @@
 #include <Arduino.h>
 
 #include "Choice.h"
-#include "Scenes.h"
+#include "Stage.h"
 #include "Typewriter.h"
 
 namespace stickui {
 
-// Views for a "configure-app" scene. Each shows "config n of N" (n and N come from the
+// The "configure-app" scene: configure-face, configure-side and (optionally) configure-sound.
+// Register it with stage.setConfigureScene(); it runs once at boot.
+Scene& configureAppScene(bool includeSoundView = false);
+
+// Views for the "configure-app" scene. Each shows "config n of N" (n and N come from the
 // scene), an instruction, and an interaction line, all centered and typed in order.
 
 // "tap face" / "once then again": measures the gap between two taps and stores it (plus an

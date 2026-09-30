@@ -35,14 +35,13 @@ class ResetPromptView : public View {
       restartApp();
     }
 
-    const ChoiceResult result = processChoiceTaps(prompt_, input, redraw);
-    if (result == ChoiceResult::Yes) {
-      delay(kAfterUserInputDelayMs);
-      restartApp();
-    }
-    if (result == ChoiceResult::No) {
+    if (processChoiceTaps(prompt_, input, redraw) == ChoiceResult::Chosen) {
+      if (prompt_.selectedIndex == 0) {
+        delay(kAfterUserInputDelayMs);
+        restartApp();
+      }
       indicators.reset();
-      app.returnToPreviousScene();
+      stage.returnToPreviousScene();
       return;
     }
 
@@ -61,7 +60,7 @@ class ResetPromptView : public View {
     const String question = kResetQuestion;
     drawCenteredLine(question, takeVisible(remaining, question.length()), contentLineY(0), WHITE);
     takeVisible(remaining, 1);
-    drawChoiceLine(kResetYes, kResetCancel, prompt_.yesSelected, remaining, contentLineY(2));
+    drawChoiceLine(kResetYes, kResetCancel, prompt_.selectedIndex == 0, remaining, contentLineY(2));
   }
 
   ChoicePrompt prompt_;
