@@ -1,0 +1,326 @@
+REFACTOR SUGGESTIONS: helloButtons -> reusable two-button UI kit
+====================================================================
+
+Goal: keep every current behavior exactly as it is, but restructure the code so a
+pomodoro timer, a choose-your-own-adventure game, a file browser (and future apps)
+can be built on top of it without copying and editing the 1,450-line main.cpp.
+
+Nothing here adds those apps' features. It only makes the existing pieces reusable.
+
+Snapshot reviewed: src/main.cpp (1,446 lines) + include/interactivity_state.h (106 lines).
+
+STATUS (2026-09-29)
+  Done: 1 (split into lib/StickUI + demo app), 3 (Theme.h, Button enum, dead code),
+        5 (one Typewriter for the step-by-step typing), part of 6 (LogView class), part of 7
+        (stickui::settings; sounds keyed by gesture).
+  Not yet: non-blocking sound/typing (4), gesture engine (2), screen stack (3),
+           N-option choices and declarative prompt views (6), canvas rendering (10).
+  Full-screen typing and button sounds still block, exactly as before.
+
+
+--------------------------------------------------------------------
+0. BEFORE CHANGING ANYTHING: WRITE DOWN WHAT MUST NOT CHANGE
+--------------------------------------------------------------------
+The biggest risk in this refactor is silently losing a small timing or feel detail.
+Suggest keeping this checklist and walking through it on the device after each step.
+
+Boot and setup
+  [ ] full screen "loading" types with clicks, dots animate with a click per dot (~1 s)
+  [ ] header "helloButtons" + two indicators type in with clicks
+  [ ] "config 1 of N" / "tap front" / "once then again", lines centered, typed top to bottom
+  [ ] "once" highlighted, then "again" after the first tap; double-click sound on success
+  [ ] 350 ms pause after a successful calibration, then "config 2 of N" for top
+  [ ] measured gap + 100 ms becomes that button's double-tap window
+  [ ] no timeouts: setup waits for the user
+  [ ] sound screen exists but is hidden (kSoundConfigScreenEnabled = false), N counts only active screens
+  [ ] "ready" types out with clicks, box cursor appears 1 s later with a click, blinks every 600 ms
+
+Main (log) screen
+  [ ] each gesture pushes a new line; older lines grey, current line white, max 3 rows
+  [ ] "front?" / "top?" while pending, resolving in place to "front"/"front double"/"front long" etc.
+  [ ] single front/top resolve silently; double = 2 clicks; long = 1 click; both / both long = 3 clicks
+  [ ] after activity: dots count up (click per dot), then a new "ready" line after 1 s
+  [ ] header arrows: dot = ready, outline = pressed, filled = long, double arrow = double
+
+Reset
+  [ ] hold both (~900 ms) anywhere, including during setup -> "reset app?" / "yes   cancel"
+  [ ] tap toggles (after the double-tap window), double tap chooses, arrows mirror presses
+  [ ] yes -> 350 ms -> full screen "restarting" (typed, dots) -> restart
+  [ ] cancel -> back to where you were (setup screen, or a fresh "ready" line)
+
+Orientation
+  [ ] other landscape: random upside-down message, wrapped, centered, typed, readable
+  [ ] either portrait: cat block (left-aligned lines) + blank line + random cat sound
+  [ ] 300 ms settle in both directions, lying flat changes nothing, buttons ignored meanwhile
+  [ ] returning redraws the screen you were on, as it was
+
+Sound
+  [ ] master 100%, typing channel 50%, button channel 75%
+  [ ] typing click 4000 Hz / 4 ms, never on spaces; button click 4490 Hz / 4 ms
+  [ ] button clicks play fully before the next sound (never cut off)
+  [ ] kTypingClicksEnabled switch still turns typing clicks off
+
+
+--------------------------------------------------------------------
+1. SPLIT THE ONE FILE INTO A SMALL LIBRARY + AN APP
+--------------------------------------------------------------------
+Today everything (drawing, sound, button timing, orientation, setup flow, and the
+"echo what button I pressed" demo) lives in one anonymous namespace in main.cpp.
+
+Suggested layout (PlatformIO picks up lib/ automatically):
+
+  lib/StickUI/
+    Theme.h            colors, font size, row height, margins, timings, volumes
+    Sound.h/.cpp       SoundPlayer: channels, typing click, button click patterns
+    Input.h/.cpp       ButtonGestures: turns raw BtnA/BtnB into gesture events
+    Typewriter.h/.cpp  one reusable "type this text out with clicks" engine
+    Text.h/.cpp        centering, word wrap, choice line, full-screen text/blocks
+    Header.h/.cpp      title + the two button indicators
+    Views/
+      LogView          the scrolling 3-line history (today's "NewLine" view)
+      PromptView       centered lines + optional choice line (today's "Redraw" screens)
+      FullScreenView   loading / restarting / upside down / cat
+    Screen.h           base class every screen implements
+    ScreenStack.h/.cpp runs the loop, owns overlays (reset, orientation)
+    Setup/
+      CalibrationScreen, SoundScreen, SetupFlow
+  src/
+    apps/HelloButtons/ today's gesture-echo demo, built on StickUI
+    main.cpp           ~20 lines: configure StickUI, pick the app, run
+
+To choose which app gets built, use one PlatformIO env per app (build_src_filter or a
+-D APP_... flag), e.g. [env:hello-buttons], later [env:pomodoro], [env:adventure].
+
+Do this first as a PURE MOVE (cut/paste into files, no logic changes), flash, and walk
+the checklist. That makes every later step a small, reviewable diff.
+
+
+--------------------------------------------------------------------
+2. ONE GESTURE ENGINE INSTEAD OF THREE
+--------------------------------------------------------------------
+Single tap / double tap / long press / both is detected three separate ways:
+
+  a) loop()                     TapTracker x2 + ~200 lines of flags (main.cpp:1143-1372)
+  b) processChoiceTaps()        its own copy for yes/no prompts (main.cpp:732-821)
+  c) calibrateDoubleTapWindow() its own copy that measures the gap (main.cpp:884-1017)
+
+Every new app would need a fourth. Suggest one ButtonGestures object, updated once per
+frame, that emits events:
+
+  enum class Button { Front, Top };
+  enum class GestureKind {
+    Pressed,        // raw down (drives the outline arrow and "front?")
+    Released,
+    Tap,            // resolved single tap (after that button's double-tap window)
+    DoubleTap,
+    LongPress,      // hold threshold reached
+    Both,           // both down
+    BothLong,       // both held past the threshold
+  };
+  struct Gesture { GestureKind kind; Button button; uint32_t atMs; uint32_t gapMs; };
+
+  - Pending state exposed as a query (isPending(Button::Front)) for "front?".
+  - Double-tap windows live here (set from calibration).
+  - gapMs on DoubleTap lets calibration reuse the engine instead of re-implementing it.
+  - The header indicators can follow gestures automatically, so no screen has to set
+    circleIndicators by hand (today 4 places do).
+
+This is the riskiest step, because the details matter (a second tap cancels the other
+button's pending tap; pressing both cancels pending taps; "both" latches until a new
+press; a hold toggles a yes/no selection if a first tap was pending). Suggest:
+  - write the engine with an injectable clock and a fake button source,
+  - add a PlatformIO [env:native] and unit tests in test/ for those cases,
+  - switch the three call sites over one at a time, walking the checklist each time.
+
+
+--------------------------------------------------------------------
+3. SCREENS AND A SCREEN STACK (NO MORE NESTED WHILE-LOOPS)
+--------------------------------------------------------------------
+Today each screen is its own blocking while(true) loop that calls M5.update(), and
+cross-cutting features are wired into each one by hand:
+
+  - handleHeldOrientation() is called in 5 places, each followed by a custom redraw
+  - hold-both-to-reset is wired separately into calibration, sound, and loop()
+  - runResetPromptDuringSetup() runs a nested modal loop inside the calibration loop
+  - handleHeldOrientation() itself blocks in a loop until the device is turned back
+
+Suggest a Screen interface:
+
+  class Screen {
+   public:
+    virtual void onEnter() {}
+    virtual void onGesture(const Gesture&) {}
+    virtual void update(uint32_t nowMs) {}      // typing, timers, animations
+    virtual void render(bool full) = 0;         // full = screen was cleared
+    virtual bool wantsHeader() const { return true; }
+  };
+
+and a ScreenStack that owns the one real loop:
+  - push/pop/replace screens (setup flow = a sequence of replaces)
+  - overlays handled ONCE: BothLong -> push ResetScreen; orientation change -> push
+    OrientationScreen; when an overlay pops, the screen below gets render(full=true)
+  - this removes every per-screen "if (handleHeldOrientation()) redraw..." hook, and
+    makes "return to where you were" automatic for any future screen
+
+Setup flow then becomes a list, and "config n of N" is computed from the list length:
+
+  SetupFlow({ CalibrationScreen(Button::Front), CalibrationScreen(Button::Top),
+              /* SoundScreen() when enabled */ })
+
+
+--------------------------------------------------------------------
+4. MAKE THE LOOP NON-BLOCKING (NEEDED FOR ANY TIMER-BASED APP)
+--------------------------------------------------------------------
+Several things block the whole program with delay():
+  - playBeep() waits for every pulse (up to ~120 ms for 3 clicks)
+  - typeFullScreenText() / typeFullScreenLines() delay 25 ms per character
+  - showFullScreenMessage() blocks for its whole duration
+  - kCalibrationAfterUserInputDelayMs pauses after choices
+
+For a pomodoro/alarm, time has to keep being tracked while the screen types and
+sounds play. Suggest:
+  - SoundPlayer keeps a small queue and starts the next pulse from update() once
+    isPlaying(channel) drops, so clicks still never get cut off, but nothing blocks
+  - full-screen typing driven by the same Typewriter, advanced in update()
+  - post-input pauses become "ignore input until t" timers in the screen
+Behavior stays the same; only the waiting moves into the frame loop.
+
+
+--------------------------------------------------------------------
+5. ONE TYPEWRITER INSTEAD OF FIVE
+--------------------------------------------------------------------
+"Type text out with a click per non-space character" is implemented five ways:
+  headerTyping (drawScreenFrame), textIndicators (advanceTextIndicatorTyping),
+  calibration's visibleCharacters, configureSound's visibleCharacters, and the
+  delay loops in typeFullScreenText / typeFullScreenLines.
+
+Suggest one Typewriter:
+  - holds an ordered list of segments (lines, or pieces of a line)
+  - advance(nowMs) reveals the next character, plays the click (not for spaces),
+    returns whether something changed
+  - visibleIn(segment) replaces the takeVisible() budget arithmetic
+  - keepPrefix(n) covers the "top?" -> "top double" case (keep typed chars, retype rest)
+  - one interval constant (today kCalibrationCharacterIntervalMs and
+    textIndicators.characterIntervalMs are both 25 but are separate settings)
+
+
+--------------------------------------------------------------------
+6. REUSABLE VIEWS (WHAT THE FUTURE APPS WOULD ACTUALLY BUILD WITH)
+--------------------------------------------------------------------
+LogView (today's NewLine mode)
+  push(text), replaceCurrent(text, keepChars), setCurrentSuffix(dots), showCursor(bool)
+  Handles wrapping, grey history, 3 visible rows, row-level redraw, blinking cursor.
+  The "top?" -> "top" merge rules in resolvePendingStatusLine() are demo-specific and
+  would move into the HelloButtons app, calling replaceCurrent().
+
+PromptView (today's Redraw screens)
+  Declarative: a list of lines { text, color, align } plus an optional choice line.
+  Calibration, reset, and sound screens become a few lines of data each, instead of
+  showCalibrationPrompt / showResetAppPrompt / showSoundPrompt.
+
+ChoiceLine: generalize yes/no to N options
+  ChoicePrompt stores `bool yesSelected`; menus, adventure choices and file lists will
+  need more than two. Store `selectedIndex` + options; with two options it behaves
+  exactly like today (tap moves the highlight, double tap chooses).
+
+FullScreenView
+  One view for loading / restarting / upside-down / cat: lines, optional aligned block
+  (ASCII art), optional animated dots, own rotation. Today these are three functions
+  with slightly different setup code.
+
+
+--------------------------------------------------------------------
+7. SEPARATE FRAMEWORK SETTINGS FROM DEMO STATE
+--------------------------------------------------------------------
+InteractivityState mixes two kinds of things:
+  - framework settings: double-tap windows, soundEnabled, indicator mode
+  - demo-only state: the InteractivityStateKind enum (FrontPending, TopLong, ...),
+    textIndicators.message, frontLongPressActive/topLongPressActive, onDoubleLong
+
+Suggest:
+  - StickUI::Settings { frontDoubleTapMs, topDoubleTapMs, soundEnabled, clicksEnabled }
+  - sounds keyed by gesture, not by demo state: SoundPlayer::onGesture(g) plays the
+    configured pattern for DoubleTap / LongPress / Both / BothLong. Then every app gets
+    identical button sounds for free, and StateBeepSettings (12 entries, half disabled,
+    plus a switch in beepConfigForState) goes away.
+  - InteractivityStateKind and the message strings stay inside the HelloButtons app.
+
+
+--------------------------------------------------------------------
+8. THEME AND MAGIC NUMBERS
+--------------------------------------------------------------------
+Collect into Theme.h so apps share one look and can tweak it in one place:
+  - grey is defined 3 ways: 0x7A7A7A (header), 0x7BEF (kGreyText), and literal 0x7BEF
+    in renderNewLineView
+  - row height 24 appears in contentLineY() and again as a literal in renderNewLineView
+  - indicator x = 22, rect sizes 20x22, arrow radii 6/4, centerY offset 9
+  - text size 2 is set in ~8 places
+  - timings: long press 900, status reset 1000, dot interval 250, cursor 600/1000,
+    orientation 300, loading/restarting 1000, post-input 350
+
+
+--------------------------------------------------------------------
+9. SMALLER CLEANUPS (SAFE, LOW EFFORT)
+--------------------------------------------------------------------
+  - Use enum class Button { Front, Top } everywhere. Today buttons are identified by
+    uint8_t 1/2 (ChoicePrompt), by buttonName[0] == 'f' (calibration), and by a
+    template parameter that is always the same type (calibrateDoubleTapWindow).
+  - kResetPromptText duplicates kResetQuestion + the choice text only so its length
+    works as a typing budget; the Typewriter makes it unnecessary.
+  - CircleIndicatorMode::Instant is never selected (mode is always Sticky); the Instant
+    branches in loop() are dead code today. Keep it only if you want that mode later.
+  - InteractivityStateKind::ResetConfirmation exists only so entering the reset prompt
+    changes state silently; with a screen stack the reset screen doesn't need a state.
+  - resetTapWindowMs() isn't reset-specific; it's "double-tap window for this button".
+  - The comment "Full-screen message (no header) that types out, then animates dots"
+    sits above fullScreenTextY() instead of showFullScreenMessage() (main.cpp:244).
+  - drawScreenFrame(false) redraws the title and line every frame; the header can
+    redraw only when an indicator or the typing actually changes.
+  - Arduino String substring() calls in render paths allocate every frame; fine now,
+    worth watching once apps have long text (adventure pages, file lists).
+
+
+--------------------------------------------------------------------
+10. OPTIONAL: FLICKER-FREE DRAWING
+--------------------------------------------------------------------
+notes-for-claude.txt lists "eliminate redraw flicker". Full redraws currently
+fillScreen() then draw. Rendering full-screen views and PromptView into an M5Canvas
+(off-screen sprite, 240x135x16bit ~ 64 KB, fits in RAM) and pushing it in one go would
+remove that flicker without changing what is drawn. Worth doing once views are
+centralized (step 6), since then it's a change in one place.
+
+
+--------------------------------------------------------------------
+11. HOW THE FUTURE APPS WOULD SIT ON THIS (FOR SHAPING THE API ONLY)
+--------------------------------------------------------------------
+Not features to add now, just a check that the pieces above are the right ones:
+
+  Pomodoro / alarm
+    needs: non-blocking loop (4), a number-picker screen (tap = change, double tap =
+    confirm) built from PromptView + ChoiceLine ideas, time kept while typing/sounds run.
+  Choose your own adventure
+    needs: word-wrapped paged text (Text wrap + LogView or a PageView), N-option
+    ChoiceLine (6), data-driven pages loaded from flash.
+  File browser
+    needs: a scrolling list with a selected row (LogView-style rows + selectedIndex),
+    push/pop screens for folders (3), N-option selection (6).
+
+  All three get for free: calibration, reset overlay, orientation overlays, typing
+  clicks, button sounds, header indicators, theme.
+
+
+--------------------------------------------------------------------
+12. SUGGESTED ORDER (EACH STEP FLASHED AND CHECKED BEFORE THE NEXT)
+--------------------------------------------------------------------
+  1. Write the checklist (section 0) into the repo.
+  2. Pure move into lib/StickUI + src/apps/HelloButtons (1). No logic changes.
+  3. Theme.h + small cleanups (8, 9). Mechanical.
+  4. Typewriter (5), then the views on top of it (6).
+  5. SoundPlayer, non-blocking, sounds keyed by gesture (4, 7).
+  6. ButtonGestures + native unit tests; migrate calibration, then prompts, then loop (2).
+  7. Screen + ScreenStack; move reset and orientation into overlays (3).
+  8. Settings vs demo state split (7).
+  9. Optional canvas rendering (10).
+
+Steps 2-5 are low risk. Steps 6-7 change the most behavior-bearing code and are where
+the checklist and tests earn their keep.
