@@ -2,8 +2,6 @@
 
 #include <M5Unified.h>
 
-#include "Buttons.h"
-
 namespace stickui {
 
 ButtonSounds buttonSounds;
@@ -39,12 +37,10 @@ void playPattern(const ClickPattern& pattern) {
   }
 }
 
-void playRedrawScreenButtonSounds() {
-  const bool frontPressed = M5.BtnA.isPressed();
-  const bool topPressed = M5.BtnB.isPressed();
-  if ((M5.BtnA.wasPressed() && topPressed) || (M5.BtnB.wasPressed() && frontPressed)) {
+void playButtonSounds(const ButtonInput& input) {
+  if ((input.face.wasPressed && input.side.isPressed) || (input.side.wasPressed && input.face.isPressed)) {
     playPattern(buttonSounds.both);
-  } else if ((M5.BtnA.wasHold() && !topPressed) || (M5.BtnB.wasHold() && !frontPressed)) {
+  } else if ((input.face.wasHeld && !input.side.isPressed) || (input.side.wasHeld && !input.face.isPressed)) {
     playPattern(buttonSounds.longPress);
   }
 }

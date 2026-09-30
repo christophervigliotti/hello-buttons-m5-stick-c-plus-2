@@ -15,8 +15,8 @@ const int kRowHeight = 24;
 const int kIndicatorX = 22;  // distance of each header indicator from its screen edge
 
 // Colors
-const uint16_t kRedIndicator = 0xF800;
-const uint16_t kGreenIndicator = 0x07E0;
+const uint16_t kSideIndicatorColor = 0xF800;  // red, left
+const uint16_t kFaceIndicatorColor = 0x07E0;  // green, right
 const uint16_t kGreyText = 0x7BEF;
 const int kHeaderColor = 0x7A7A7A;
 
@@ -35,12 +35,13 @@ const uint16_t kDefaultDoubleTapWindowMs = 300;
 const uint16_t kDoubleTapAllowanceMs = 100;
 const uint16_t kMaximumCalibrationGapMs = 1000;
 
-// Held any way but the normal landscape orientation, the app pauses behind a full screen:
-// an upside-down message in the other landscape orientation, a cat in either portrait one.
+// Orientation. "Up" is the normal landscape orientation (kScreenRotation). Scenes decide what
+// to show in the other three (see Scenes.h).
 const uint8_t kScreenRotation = 1;
 const uint8_t kUpsideDownRotation = 3;
-const uint8_t kPortraitRotationForPositiveY = 0;  // swap these two if the cat is upside down
+const uint8_t kPortraitRotationForPositiveY = 0;  // swap these two if portrait views are upside down
 const uint8_t kPortraitRotationForNegativeY = 2;
+const bool kLeftSideUpIsPositiveY = false;  // checked on the device 2026-09-30
 const float kOrientationThresholdG = 0.5f;
 const uint32_t kOrientationSettleMs = 300;
 
@@ -56,9 +57,5 @@ const bool kTypingClicksEnabled = true;
 const uint16_t kTypingClickHz = 4000;
 const uint16_t kButtonClickHz = 4490;  // two semitones above the typing click
 const uint16_t kClickDurationMs = 4;
-
-// Setup. The sound on/off screen is hidden for now; config labels count only active screens.
-const bool kSoundConfigScreenEnabled = false;
-const uint8_t kConfigScreenCount = kSoundConfigScreenEnabled ? 3 : 2;
 
 }  // namespace stickui

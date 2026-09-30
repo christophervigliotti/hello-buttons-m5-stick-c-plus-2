@@ -9,13 +9,21 @@ Nothing here adds those apps' features. It only makes the existing pieces reusab
 
 Snapshot reviewed: src/main.cpp (1,446 lines) + include/interactivity_state.h (106 lines).
 
-STATUS (2026-09-29)
+STATUS (2026-09-30)
   Done: 1 (split into lib/StickUI + demo app), 3 (Theme.h, Button enum, dead code),
         5 (one Typewriter for the step-by-step typing), part of 6 (LogView class), part of 7
         (stickui::settings; sounds keyed by gesture).
-  Not yet: non-blocking sound/typing (4), gesture engine (2), screen stack (3),
-           N-option choices and declarative prompt views (6), canvas rendering (10).
+  Done 2026-09-30: section 3 as Scenes/Views/App (Scenes.h). One frame loop in App::update();
+        views get a ButtonInput per frame; hold-both -> reset scene and orientation ->
+        alternative views are handled once, in App. Buttons renamed face/side. Four named
+        orientations (Up, UpsideDown, LeftSideUp, LeftSideDown); scenes ignore orientations
+        they don't name. Demo split into src/ButtonDemoView + src/RandomViews + main.cpp.
+  Not yet: non-blocking sound/typing (4), gesture engine (2; ButtonDemoView and
+           processChoiceTaps still each detect taps), N-option choices and declarative
+           prompt views (6), canvas rendering (10).
   Full-screen typing and button sounds still block, exactly as before.
+  Parked idea (2026-09-30): views could carry style properties (colors, alignment, text
+  size, header on/off) instead of drawing with Theme constants directly. Not started.
 
 
 --------------------------------------------------------------------

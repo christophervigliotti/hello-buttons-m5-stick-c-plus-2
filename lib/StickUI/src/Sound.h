@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 
+#include "Buttons.h"
 #include "Theme.h"
 
 namespace stickui {
@@ -44,7 +45,7 @@ void playTypingClick(char character = '\0');
 // Blocks until each pulse has actually finished playing so nothing cuts it off.
 void playPattern(const ClickPattern& pattern);
 
-// Setup and prompt screens handle taps themselves; this adds the long and both-button sounds.
-void playRedrawScreenButtonSounds();
+// For views that handle taps themselves: plays the both and long-press sounds this frame.
+void playButtonSounds(const ButtonInput& input);
 
 }  // namespace stickui

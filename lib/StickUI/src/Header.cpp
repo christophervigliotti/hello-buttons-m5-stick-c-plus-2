@@ -95,10 +95,10 @@ void drawScreenFrame(bool clearScreen) {
   M5.Lcd.drawString(visibleTitle, titleX, kTitleY);
 
   if (headerTyping.visibleTokens > titleLength) {
-    drawButtonIndicator(leftIndicatorX, kRedIndicator, indicators.top, false);
+    drawButtonIndicator(leftIndicatorX, kSideIndicatorColor, indicators.side, false);
   }
   if (headerTyping.visibleTokens > titleLength + 1) {
-    drawButtonIndicator(rightIndicatorX, kGreenIndicator, indicators.front, true);
+    drawButtonIndicator(rightIndicatorX, kFaceIndicatorColor, indicators.face, true);
   }
 
   M5.Lcd.drawFastHLine(0, kHeaderLineY, M5.Lcd.width(), kHeaderColor);

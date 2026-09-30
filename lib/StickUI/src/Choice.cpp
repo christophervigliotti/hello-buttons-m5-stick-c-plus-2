@@ -1,37 +1,29 @@
 #include "Choice.h"
 
-#include <M5Unified.h>
-
 #include "Header.h"
 #include "Sound.h"
 
 namespace stickui {
 
-ChoiceResult processChoiceTaps(ChoicePrompt& prompt, bool& redraw) {
-  playRedrawScreenButtonSounds();
-  const bool frontPressed = M5.BtnA.isPressed();
-  const bool topPressed = M5.BtnB.isPressed();
-  const bool frontWasPressed = M5.BtnA.wasPressed();
-  const bool topWasPressed = M5.BtnB.wasPressed();
-  const bool frontWasReleased = M5.BtnA.wasReleased();
-  const bool topWasReleased = M5.BtnB.wasReleased();
-  const bool frontWasHeld = M5.BtnA.wasHold();
-  const bool topWasHeld = M5.BtnB.wasHold();
+ChoiceResult processChoiceTaps(ChoicePrompt& prompt, const ButtonInput& input, bool& redraw) {
+  playButtonSounds(input);
+  const ButtonState& face = input.face;
+  const ButtonState& side = input.side;
   const uint32_t nowMs = millis();
 
-  if (frontWasPressed) indicators.front = IndicatorState::Pressed;
-  if (frontWasHeld) indicators.front = IndicatorState::LongPressed;
-  if (frontWasReleased) indicators.front = IndicatorState::Ready;
-  if (topWasPressed) indicators.top = IndicatorState::Pressed;
-  if (topWasHeld) indicators.top = IndicatorState::LongPressed;
-  if (topWasReleased) indicators.top = IndicatorState::Ready;
-  if (frontWasPressed || frontWasHeld || frontWasReleased ||
-      topWasPressed || topWasHeld || topWasReleased) {
+  if (face.wasPressed) indicators.face = IndicatorState::Pressed;
+  if (face.wasHeld) indicators.face = IndicatorState::LongPressed;
+  if (face.wasReleased) indicators.face = IndicatorState::Ready;
+  if (side.wasPressed) indicators.side = IndicatorState::Pressed;
+  if (side.wasHeld) indicators.side = IndicatorState::LongPressed;
+  if (side.wasReleased) indicators.side = IndicatorState::Ready;
+  if (face.wasPressed || face.wasHeld || face.wasReleased ||
+      side.wasPressed || side.wasHeld || side.wasReleased) {
     redraw = true;
   }
 
   if (prompt.waitingForButtonsRelease) {
-    if (!frontPressed && !topPressed) {
+    if (!face.isPressed && !side.isPressed) {
       prompt.waitingForButtonsRelease = false;
       redraw = true;
     }
@@ -45,7 +37,7 @@ ChoiceResult processChoiceTaps(ChoicePrompt& prompt, bool& redraw) {
     redraw = true;
   }
 
-  if (frontWasHeld || topWasHeld) {
+  if (face.wasHeld || side.wasHeld) {
     prompt.pressInProgress = false;
     prompt.secondTapInProgress = false;
     if (prompt.waitingForSecondTap) {
@@ -56,13 +48,13 @@ ChoiceResult processChoiceTaps(ChoicePrompt& prompt, bool& redraw) {
   }
 
   bool buttonWasTapped = false;
-  Button tappedButton = Button::Front;
-  if (frontWasPressed && !topPressed) {
+  Button tappedButton = Button::Face;
+  if (face.wasPressed && !side.isPressed) {
     buttonWasTapped = true;
-    tappedButton = Button::Front;
-  } else if (topWasPressed && !frontPressed) {
+    tappedButton = Button::Face;
+  } else if (side.wasPressed && !face.isPressed) {
     buttonWasTapped = true;
-    tappedButton = Button::Top;
+    tappedButton = Button::Side;
   }
 
   if (buttonWasTapped) {
@@ -84,9 +76,9 @@ ChoiceResult processChoiceTaps(ChoicePrompt& prompt, bool& redraw) {
     }
   }
 
-  const bool matchingFrontRelease = frontWasReleased && prompt.pressedButton == Button::Front;
-  const bool matchingTopRelease = topWasReleased && prompt.pressedButton == Button::Top;
-  if (prompt.pressInProgress && (matchingFrontRelease || matchingTopRelease)) {
+  const bool matchingFaceRelease = face.wasReleased && prompt.pressedButton == Button::Face;
+  const bool matchingSideRelease = side.wasReleased && prompt.pressedButton == Button::Side;
+  if (prompt.pressInProgress && (matchingFaceRelease || matchingSideRelease)) {
     prompt.pressInProgress = false;
     if (prompt.secondTapInProgress) {
       playPattern(buttonSounds.doubleTap);

@@ -10,15 +10,15 @@ namespace stickui {
 enum class IndicatorState { Ready, Pressed, LongPressed, DoublePressed };
 
 struct Indicators {
-  IndicatorState front = IndicatorState::Ready;
-  IndicatorState top = IndicatorState::Ready;
+  IndicatorState face = IndicatorState::Ready;  // right, green
+  IndicatorState side = IndicatorState::Ready;  // left, red
 
   void reset() {
-    front = IndicatorState::Ready;
-    top = IndicatorState::Ready;
+    face = IndicatorState::Ready;
+    side = IndicatorState::Ready;
   }
 
-  IndicatorState& forButton(Button button) { return button == Button::Front ? front : top; }
+  IndicatorState& forButton(Button button) { return button == Button::Face ? face : side; }
 };
 
 extern Indicators indicators;
