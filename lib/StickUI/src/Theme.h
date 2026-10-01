@@ -20,6 +20,21 @@ const uint16_t kFaceIndicatorColor = 0x07E0;  // green, right
 const uint16_t kGreyText = 0x7BEF;
 const int kHeaderColor = 0x7A7A7A;
 
+// Text roles (see TextRole in Text.h): text you read, text you could select, and the
+// current selection. In left-justified lists the selection gets a green dot on its left
+// once it has typed in; centered choice lines rely on color alone.
+const uint16_t kReadingTextColor = 0xFFFF;
+const uint16_t kSelectableTextColor = kGreyText;
+const uint16_t kSelectedTextColor = 0xFFFF;
+const uint16_t kSelectionDotColor = 0x07E0;  // green
+const int kSelectionDotRadius = 3;
+const int kSelectionDotGap = 8;              // between the dot and the text
+const int kSelectableTextInset = 20;         // room for the dot in left-justified lists
+
+// Scrollbar for lists with more items than fit: a narrow track at the right edge.
+const int kScrollbarWidth = 2;
+const int kScrollbarMargin = 3;  // from the right edge
+
 // Timing
 const uint32_t kLongPressThresholdMs = 900;
 const uint16_t kTypingIntervalMs = 25;

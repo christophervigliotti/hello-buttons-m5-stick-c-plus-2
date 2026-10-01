@@ -4,8 +4,13 @@
 
 namespace stickui {
 
-// The "playbill" scene: lists the stage's shows, one per row. Tap moves the highlight,
-// double tap opens the show. The stage opens it itself when there is more than one show.
+// The built-in "main menu" show; the stage puts the playbill in it at start().
+Show& mainMenuShow();
+
+// The "playbill" scene. View "show-list": "pick one" over the stage's shows and a final
+// "reset?" item, left-justified; tap moves the selection, double tap opens it. View
+// "reset-prompt": "reset?  yes   cancel"; yes (or a new hold of both buttons) restarts the
+// device, cancel goes back.
 Scene& playbillScene();
 
 }  // namespace stickui

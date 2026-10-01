@@ -13,7 +13,7 @@
 //     mainScene.addView(myView);
 //     myShow.addScene(mainScene);
 //     stage.addShow(myShow).setConfigureScene(configureAppScene());
-//     stage.start("stickUI");
+//     stage.start();
 //   }
 //   void loop() { stage.update(); }
 
@@ -24,7 +24,6 @@
 #include "LogView.h"
 #include "Orientation.h"
 #include "Playbill.h"
-#include "ResetScene.h"
 #include "Sound.h"
 #include "Stage.h"
 #include "Text.h"

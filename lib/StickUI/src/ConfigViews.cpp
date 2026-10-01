@@ -189,6 +189,11 @@ void ConfigureSoundView::update(const ButtonInput& input) {
   }
 }
 
+Show& configShow() {
+  static Show show("config");
+  return show;
+}
+
 Scene& configureAppScene(bool includeSoundView) {
   static ConfigureButtonView configureFace(Button::Face);
   static ConfigureButtonView configureSide(Button::Side);

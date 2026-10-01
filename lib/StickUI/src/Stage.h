@@ -18,12 +18,13 @@
 //
 //   void setup() {
 //     stage.addShow(helloButtons).setConfigureScene(configureAppScene());
-//     stage.start("stickUI");
+//     stage.start();
 //   }
 //   void loop() { stage.update(); }
 //
-// Boot: "loading...", then the configure scene (once, if set), then the playbill to pick
-// a show when there is more than one, otherwise straight into the only show.
+// Boot: "loading...", then the built-in "config" show (the configure scene, once, if set),
+// then the built-in "main menu" show (the playbill) to pick a show. With a single show the
+// playbill is skipped and the show opens directly.
 //
 // Each scene has one current view (moved with goToView / goToNextView). A scene can name
 // an alternative view for any orientation other than Up; while the device is held that
@@ -31,9 +32,10 @@
 // the current view comes back when the device returns to Up. Orientations a scene doesn't
 // name are ignored: the current view stays put, unrotated.
 //
-// Holding both buttons long opens the reset scene from anywhere (not while an alternative
-// view shows, since those ignore buttons). When a show's last scene finishes, the stage
-// returns to the playbill.
+// Holding both buttons long opens the main menu from any show (from the config show it goes
+// straight to the main menu's reset prompt, and cancel returns to config). Not while an
+// alternative view shows, since those ignore buttons. When a show's last scene finishes,
+// the stage returns to the main menu.
 
 namespace stickui {
 
@@ -68,6 +70,10 @@ class View {
 
   // Pause between frames while this view shows.
   virtual uint32_t frameDelayMs() const { return 20; }
+
+  // Whether the view draws under the standard header. While the header is still typing in,
+  // the stage keeps it going even on frames the view doesn't redraw.
+  virtual bool wantsHeader() const { return true; }
 
  private:
   friend class Scene;
@@ -141,23 +147,23 @@ class Stage {
  public:
   Stage& addShow(Show& show);
 
-  // Scene run once at boot before any show (e.g. configureAppScene()).
+  // Scene run once at boot as the "config" show (e.g. configureAppScene()).
   Stage& setConfigureScene(Scene& scene);
 
-  // Scene opened by holding both buttons long. Defaults to resetAppScene().
-  Stage& setResetScene(Scene& scene);
-
-  // Starts the hardware and boots. `title` is the header title outside any show (during
-  // configuration and on the playbill). Call from setup().
-  void start(const char* title);
+  // Starts the hardware and boots into the main menu. Call from setup().
+  void start();
 
   // Runs one frame. Call from loop().
   void update();
 
   void openShow(Show& show);
-  void openPlaybill();
+  void openMainMenu();  // the playbill's show list
+  void openResetPrompt();  // the playbill's reset prompt; cancel returns to the current scene
 
-  // Within the current show first, then the stage's own scenes (configure, reset, playbill).
+  // Called by the reset prompt on cancel.
+  void resetPromptCancelled();
+
+  // Within the current show first, then the stage's own scenes (configure, playbill).
   void goToScene(Scene& scene);
   void goToScene(const char* name);
   void returnToPreviousScene();
@@ -175,7 +181,6 @@ class Stage {
 
   void requestView(Scene& scene, size_t index);
   void sceneFinished(Scene& scene);
-  void afterConfigure();
   void setTitle(const char* title);
   ButtonInput readInput();
   void applyOrientation();
@@ -183,14 +188,14 @@ class Stage {
   void showCurrentView();
   void resumeCurrentView(ResumeReason reason);
 
-  const char* title_ = "";
   Show* shows_[kMaxShows] = {};
   size_t showCount_ = 0;
   Show* currentShow_ = nullptr;
   Scene* configureScene_ = nullptr;
-  Scene* resetScene_ = nullptr;
   Scene* current_ = nullptr;
   Scene* previous_ = nullptr;
+  Show* previousShow_ = nullptr;
+  bool resetReturnsToPrevious_ = false;
   View* displayed_ = nullptr;
   bool showingAlternative_ = false;
   OrientationTracker orientation_;

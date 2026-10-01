@@ -2,10 +2,10 @@
 
 #include <M5Unified.h>
 
+#include "ConfigViews.h"
 #include "Header.h"
 #include "LogView.h"
 #include "Playbill.h"
-#include "ResetScene.h"
 #include "Sound.h"
 #include "StickUI.h"
 #include "Text.h"
@@ -103,24 +103,16 @@ Stage& Stage::setConfigureScene(Scene& scene) {
   return *this;
 }
 
-Stage& Stage::setResetScene(Scene& scene) {
-  resetScene_ = &scene;
-  return *this;
-}
-
-void Stage::start(const char* title) {
+void Stage::start() {
   begin();
-  title_ = title;
-  setAppTitle(title_);
-  if (resetScene_ == nullptr) {
-    resetScene_ = &resetAppScene();
-  }
-  showFullScreenMessage("loading", kLoadingScreenMs);
+  mainMenuShow().addScene(playbillScene());
 
+  showFullScreenMessage("loading", kLoadingScreenMs);
   if (configureScene_ != nullptr) {
-    goToScene(*configureScene_);
+    configShow().addScene(*configureScene_);
+    openShow(configShow());  // when it finishes, sceneFinished() opens the main menu
   } else {
-    afterConfigure();
+    openMainMenu();
   }
   applyPending();
 }
@@ -128,6 +120,10 @@ void Stage::start(const char* title) {
 void Stage::update() {
   M5.update();
   const ButtonInput input = readInput();
+  if (displayed_ == nullptr) {
+    delay(20);  // nothing to show: no shows were added
+    return;
+  }
 
   if (orientation_.update()) {
     applyOrientation();
@@ -137,33 +133,62 @@ void Stage::update() {
     return;
   }
 
-  if (input.bothHeldLong && resetScene_ != nullptr && current_ != resetScene_) {
+  if (input.bothHeldLong && currentShow_ != &mainMenuShow()) {
     indicators.face = IndicatorState::LongPressed;
     indicators.side = IndicatorState::LongPressed;
     playPattern(buttonSounds.bothLong);
-    goToScene(*resetScene_);
+    if (currentShow_ == &configShow()) {
+      openResetPrompt();  // configuration can't be skipped, but it can be abandoned
+    } else {
+      openMainMenu();
+    }
   } else {
     displayed_->update(input);
   }
   applyPending();
+  if (displayed_->wantsHeader() && !showingAlternative_ && !isHeaderTypingComplete()) {
+    drawScreenFrame(false);  // keep the title typing in between the view's own redraws
+  }
   delay(displayed_->frameDelayMs());
 }
 
 void Stage::openShow(Show& show) {
+  previousShow_ = currentShow_;
   currentShow_ = &show;
   setTitle(show.title());
   goToScene(show.openingScene());
 }
 
-void Stage::openPlaybill() {
-  currentShow_ = nullptr;
-  setTitle(title_);
+void Stage::openMainMenu() {
+  previousShow_ = currentShow_;
+  currentShow_ = &mainMenuShow();
+  setTitle(currentShow_->title());
   goToScene(playbillScene());
+}
+
+void Stage::openResetPrompt() {
+  previousShow_ = currentShow_;
+  currentShow_ = &mainMenuShow();
+  setTitle(currentShow_->title());
+  resetReturnsToPrevious_ = true;
+  pending_ = Pending::EnterScene;
+  pendingScene_ = &playbillScene();
+  pendingIndex_ = 1;  // the reset-prompt view
+}
+
+void Stage::resetPromptCancelled() {
+  if (resetReturnsToPrevious_) {
+    resetReturnsToPrevious_ = false;
+    returnToPreviousScene();
+  } else {
+    playbillScene().goToView("show-list");
+  }
 }
 
 void Stage::goToScene(Scene& scene) {
   pending_ = Pending::EnterScene;
   pendingScene_ = &scene;
+  pendingIndex_ = 0;
 }
 
 void Stage::goToScene(const char* name) {
@@ -174,7 +199,7 @@ void Stage::goToScene(const char* name) {
       return;
     }
   }
-  for (Scene* scene : {configureScene_, resetScene_, &playbillScene()}) {
+  for (Scene* scene : {configureScene_, &playbillScene()}) {
     if (scene != nullptr && strcmp(scene->name(), name) == 0) {
       goToScene(*scene);
       return;
@@ -196,19 +221,8 @@ void Stage::requestView(Scene& scene, size_t index) {
 }
 
 void Stage::sceneFinished(Scene& scene) {
-  if (&scene == configureScene_) {
-    afterConfigure();
-  } else if (showCount_ > 1) {
-    openPlaybill();
-  }
-}
-
-void Stage::afterConfigure() {
-  if (showCount_ > 1) {
-    openPlaybill();
-  } else if (showCount_ == 1) {
-    openShow(*shows_[0]);
-  }
+  (void)scene;
+  openMainMenu();
 }
 
 // Changes the header title; a different title types in again when the next screen draws.
@@ -271,13 +285,17 @@ void Stage::applyPending() {
     case Pending::EnterScene:
       previous_ = current_;
       current_ = pendingScene_;
-      current_->currentIndex_ = 0;
+      current_->currentIndex_ = pendingIndex_;
       showCurrentView();
       applyOrientation();  // the new scene may show something for how the device is held now
       break;
     case Pending::ResumeScene:
       current_ = pendingScene_;
       previous_ = nullptr;
+      if (previousShow_ != nullptr) {
+        currentShow_ = previousShow_;
+        setTitle(currentShow_->title());
+      }
       resumeCurrentView(ResumeReason::SceneReturned);
       applyOrientation();
       break;

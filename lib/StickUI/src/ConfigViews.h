@@ -8,6 +8,9 @@
 
 namespace stickui {
 
+// The built-in "config" show; the stage puts the configure scene in it at start().
+Show& configShow();
+
 // The "configure-app" scene: configure-face, configure-side and (optionally) configure-sound.
 // Register it with stage.setConfigureScene(); it runs once at boot.
 Scene& configureAppScene(bool includeSoundView = false);

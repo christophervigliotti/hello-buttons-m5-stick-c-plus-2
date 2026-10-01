@@ -3,8 +3,8 @@
 //                 left-side-down shows cat-random, left-side-up shows dog-random
 //   pomodoro      a placeholder until the real show lands (see PlaceholderView.h)
 //
-// The stage itself provides configure-app (once at boot), the playbill (pick a show) and
-// reset-app (hold both buttons anywhere).
+// The stage itself provides the "config" show (configure-app, once at boot) and the "main
+// menu" show (pick a show, or reset). Holding both buttons in a show opens the main menu.
 #include <Arduino.h>
 #include <StickUI.h>
 
@@ -43,7 +43,7 @@ void setup() {
   pomodoro.addScene(pomodoroScene);
 
   stage.addShow(helloButtons).addShow(pomodoro).setConfigureScene(configureAppScene(kSoundConfigViewEnabled));
-  stage.start("stickUI");
+  stage.start();
 }
 
 void loop() {

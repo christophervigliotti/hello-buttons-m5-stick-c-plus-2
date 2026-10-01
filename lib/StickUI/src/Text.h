@@ -17,9 +17,30 @@ size_t takeVisible(size_t& remaining, size_t length);
 // Centers on the full text so partially typed lines don't shift as they grow.
 void drawCenteredLine(const String& text, size_t visibleCharacters, int y, uint16_t color);
 
-// "first   second", centered, with the selected option white and the other grey.
+// How a piece of text takes part in interaction. Colors and dots come from Theme.h.
+enum class TextRole {
+  Reading,     // plain text
+  Selectable,  // an option that could be chosen
+  Selected,    // the option that would be chosen now: a dot at each end
+};
+
+// Draws `text` at x,y in its role. With `withDot`, a Selected item gets the dot on its left
+// once it has fully typed in (for left-justified lists).
+void drawText(const String& text, size_t visibleCharacters, int x, int y, TextRole role,
+              bool withDot = false);
+
+// Centered version of drawText (centered on the full text), color only.
+void drawCenteredLine(const String& text, size_t visibleCharacters, int y, TextRole role);
+
+// "first   second", centered, one option Selected and the other Selectable, color only.
 void drawChoiceLine(const String& first, const String& second, bool firstSelected,
                     size_t visibleCharacters, int y);
+
+// Narrow scrollbar at the right edge spanning rows [firstRow, firstRow + rowCount) of the
+// content area, for a list of `itemCount` items showing `visibleCount` from `firstVisible`.
+// Draws nothing when everything fits.
+void drawScrollbar(size_t firstRow, size_t rowCount, size_t itemCount, size_t visibleCount,
+                   size_t firstVisible);
 
 // Word-wraps `text` to the screen width; returns the number of lines written.
 size_t wrapToScreenWidth(const String& text, String lines[], size_t maxLines);

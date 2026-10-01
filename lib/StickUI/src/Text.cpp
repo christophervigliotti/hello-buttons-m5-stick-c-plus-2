@@ -36,17 +36,56 @@ void drawCenteredLine(const String& text, size_t visibleCharacters, int y, uint1
   M5.Lcd.drawString(text.substring(0, visibleCharacters), centeredX(text), y);
 }
 
+void drawText(const String& text, size_t visibleCharacters, int x, int y, TextRole role,
+              bool withDot) {
+  uint16_t color = kReadingTextColor;
+  if (role == TextRole::Selectable) {
+    color = kSelectableTextColor;
+  } else if (role == TextRole::Selected) {
+    color = kSelectedTextColor;
+  }
+  M5.Lcd.setTextDatum(TL_DATUM);
+  M5.Lcd.setTextColor(color, BLACK);
+  M5.Lcd.drawString(text.substring(0, visibleCharacters), x, y);
+
+  if (role == TextRole::Reading || !withDot) {
+    return;
+  }
+  const bool showDot = role == TextRole::Selected && visibleCharacters >= text.length();
+  const uint16_t dotColor = showDot ? kSelectionDotColor : BLACK;  // BLACK clears a stale dot
+  M5.Lcd.fillCircle(x - kSelectionDotGap - kSelectionDotRadius, y + M5.Lcd.fontHeight() / 2,
+                    kSelectionDotRadius, dotColor);
+}
+
+void drawScrollbar(size_t firstRow, size_t rowCount, size_t itemCount, size_t visibleCount,
+                   size_t firstVisible) {
+  if (itemCount <= visibleCount || visibleCount == 0) {
+    return;
+  }
+  const int x = M5.Lcd.width() - kScrollbarMargin - kScrollbarWidth;
+  const int top = contentLineY(firstRow);
+  const int height = kRowHeight * static_cast<int>(rowCount);
+  const int thumbHeight = max(4, height * static_cast<int>(visibleCount) / static_cast<int>(itemCount));
+  const int thumbTop = top + (height - thumbHeight) * static_cast<int>(firstVisible) /
+                                 static_cast<int>(itemCount - visibleCount);
+  M5.Lcd.fillRect(x, top, kScrollbarWidth, height, kGreyText);
+  M5.Lcd.fillRect(x, thumbTop, kScrollbarWidth, thumbHeight, WHITE);
+}
+
+void drawCenteredLine(const String& text, size_t visibleCharacters, int y, TextRole role) {
+  drawText(text, visibleCharacters, centeredX(text), y, role);
+}
+
 void drawChoiceLine(const String& first, const String& second, bool firstSelected,
                     size_t visibleCharacters, int y) {
   const String leading = first + kChoiceSpacer;
   const int x = centeredX(leading + second);
   size_t remaining = visibleCharacters;
-  M5.Lcd.setTextDatum(TL_DATUM);
-  M5.Lcd.setTextColor(firstSelected ? WHITE : kGreyText, BLACK);
-  M5.Lcd.drawString(first.substring(0, takeVisible(remaining, first.length())), x, y);
+  drawText(first, takeVisible(remaining, first.length()), x, y,
+           firstSelected ? TextRole::Selected : TextRole::Selectable);
   takeVisible(remaining, leading.length() - first.length());
-  M5.Lcd.setTextColor(firstSelected ? kGreyText : WHITE, BLACK);
-  M5.Lcd.drawString(second.substring(0, remaining), x + M5.Lcd.textWidth(leading.c_str()), y);
+  drawText(second, remaining, x + M5.Lcd.textWidth(leading.c_str()), y,
+           firstSelected ? TextRole::Selectable : TextRole::Selected);
 }
 
 size_t wrapToScreenWidth(const String& text, String lines[], size_t maxLines) {
