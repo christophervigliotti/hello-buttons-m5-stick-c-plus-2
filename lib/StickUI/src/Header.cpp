@@ -67,7 +67,7 @@ void restartHeaderTyping() {
   headerTyping = HeaderTyping{};
 }
 
-void drawScreenFrame(bool clearScreen) {
+void drawScreenFrame(bool clearScreen, bool withButtonHelpers) {
   const int leftIndicatorX = kIndicatorX;
   const int rightIndicatorX = M5.Lcd.width() - kIndicatorX;
   if (clearScreen) {
@@ -102,10 +102,10 @@ void drawScreenFrame(bool clearScreen) {
   const int titleX = (M5.Lcd.width() - M5.Lcd.textWidth(title)) / 2;
   M5.Lcd.drawString(visibleTitle, titleX, kTitleY);
 
-  if (headerTyping.visibleTokens > titleLength) {
+  if (withButtonHelpers && headerTyping.visibleTokens > titleLength) {
     drawButtonIndicator(leftIndicatorX, kSideIndicatorColor, indicators.side, false);
   }
-  if (headerTyping.visibleTokens > titleLength + 1) {
+  if (withButtonHelpers && headerTyping.visibleTokens > titleLength + 1) {
     drawButtonIndicator(rightIndicatorX, kFaceIndicatorColor, indicators.face, true);
   }
 

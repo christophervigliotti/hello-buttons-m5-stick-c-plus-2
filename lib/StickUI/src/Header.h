@@ -29,9 +29,10 @@ const char* appTitle();
 // Makes the title and indicators type in again on the next drawScreenFrame(true).
 void restartHeaderTyping();
 
-// Draws the title, both indicators and the header line. The title and indicators type in
-// (with clicks) the first time. clearScreen=true starts a fresh full-screen redraw.
-void drawScreenFrame(bool clearScreen = true);
+// Draws the title bar: the title, the button helpers (both indicators) and the line. The
+// title and helpers type in (with clicks) the first time. clearScreen=true starts a fresh
+// full-screen redraw. withButtonHelpers=false leaves the indicators out.
+void drawScreenFrame(bool clearScreen = true, bool withButtonHelpers = true);
 
 bool isHeaderTypingComplete();
 

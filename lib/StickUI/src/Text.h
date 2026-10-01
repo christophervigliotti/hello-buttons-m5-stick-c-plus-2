@@ -57,8 +57,13 @@ const char* randomChoice(const char* const (&choices)[N]) {
 int typeFullScreenText(const String& text, const String& reservedSuffix = "");
 
 // Types lines centered on screen. The first `alignedLineCount` lines are centered as a block
-// with a shared left edge (for ASCII art); the rest are centered one by one.
-void typeFullScreenLines(const String lines[], size_t lineCount, size_t alignedLineCount = 0);
+// with a shared left edge (for ASCII art); the rest are centered one by one. With
+// `underTitleBar`, draws the title bar (no button helpers) and centers in the area below it.
+void typeFullScreenLines(const String lines[], size_t lineCount, size_t alignedLineCount = 0,
+                         bool underTitleBar = false);
+
+// Number of lines typeFullScreenLines can fit (with or without the title bar).
+size_t fullScreenLineCapacity(bool underTitleBar = false);
 
 // Types `text`, then animates dots after it for `durationMs` (e.g. "loading...").
 void showFullScreenMessage(const String& text, uint32_t durationMs);

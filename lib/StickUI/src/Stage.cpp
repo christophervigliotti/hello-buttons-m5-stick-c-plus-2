@@ -129,7 +129,8 @@ void Stage::update() {
     applyOrientation();
   }
   if (showingAlternative_) {
-    delay(displayed_->frameDelayMs());  // alternative views ignore the buttons
+    displayed_->update(input);  // alternative views may react to buttons, but can't navigate
+    delay(displayed_->frameDelayMs());
     return;
   }
 
@@ -146,8 +147,9 @@ void Stage::update() {
     displayed_->update(input);
   }
   applyPending();
-  if (displayed_->wantsHeader() && !showingAlternative_ && !isHeaderTypingComplete()) {
-    drawScreenFrame(false);  // keep the title typing in between the view's own redraws
+  if (displayed_->doDisplayTitleBar() && !showingAlternative_ && !isHeaderTypingComplete()) {
+    // Keep the title typing in between the view's own redraws.
+    drawScreenFrame(false, displayed_->doDisplayTitleBarButtonHelpers());
   }
   delay(displayed_->frameDelayMs());
 }

@@ -11,13 +11,13 @@
 //
 //   Scene mainScene("main");
 //   mainScene.addView(buttonDemo)
-//       .showWhenHeld(Orientation::UpsideDown, sarcasticRandom)
+//       .showWhenHeld(Orientation::UpsideDown, quoteRandom)
 //       .showWhenHeld(Orientation::LeftSideDown, catRandom);
-//   Show helloButtons("helloButtons");
-//   helloButtons.addScene(mainScene);
+//   Show helloPets("helloPets");
+//   helloPets.addScene(mainScene);
 //
 //   void setup() {
-//     stage.addShow(helloButtons).setConfigureScene(configureAppScene());
+//     stage.addShow(helloPets).setConfigureScene(configureAppScene());
 //     stage.start();
 //   }
 //   void loop() { stage.update(); }
@@ -71,9 +71,12 @@ class View {
   // Pause between frames while this view shows.
   virtual uint32_t frameDelayMs() const { return 20; }
 
-  // Whether the view draws under the standard header. While the header is still typing in,
-  // the stage keeps it going even on frames the view doesn't redraw.
-  virtual bool wantsHeader() const { return true; }
+  // Whether the view draws under the title bar (the show's title, the line, and the button
+  // helpers: the two arrows that mirror the buttons). While the title bar is still typing
+  // in, the stage keeps it going even on frames the view doesn't redraw. Views that return
+  // true draw it themselves with drawScreenFrame(clear, doDisplayTitleBarButtonHelpers()).
+  virtual bool doDisplayTitleBar() const { return true; }
+  virtual bool doDisplayTitleBarButtonHelpers() const { return true; }
 
  private:
   friend class Scene;
@@ -91,7 +94,8 @@ class Scene {
   Scene& addView(View& view);
 
   // Shows `view` instead of the current view while the device is held in `orientation`
-  // (not Up). The view shows rotated for that orientation and gets no button input.
+  // (not Up). The view shows rotated for that orientation; it still gets button input but
+  // holding both buttons does nothing there.
   Scene& showWhenHeld(Orientation orientation, View& view);
 
   // Scene to go to after goToNextView() on the last view. Without one, the scene is

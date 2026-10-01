@@ -2,6 +2,7 @@
 
 #include <M5Unified.h>
 
+#include "Header.h"
 #include "LogView.h"
 #include "Sound.h"
 #include "Theme.h"
@@ -122,18 +123,30 @@ int typeFullScreenText(const String& text, const String& reservedSuffix) {
   return x + M5.Lcd.textWidth(text.c_str());
 }
 
-void typeFullScreenLines(const String lines[], size_t lineCount, size_t alignedLineCount) {
-  M5.Lcd.fillScreen(BLACK);
+size_t fullScreenLineCapacity(bool underTitleBar) {
+  M5.Lcd.setTextSize(kTextSize);
+  const int top = underTitleBar ? kHeaderLineY + 1 : 0;
+  return static_cast<size_t>((M5.Lcd.height() - top) / (M5.Lcd.fontHeight() + 4));
+}
+
+void typeFullScreenLines(const String lines[], size_t lineCount, size_t alignedLineCount,
+                         bool underTitleBar) {
+  if (underTitleBar) {
+    drawScreenFrame(true, /*withButtonHelpers=*/false);
+  } else {
+    M5.Lcd.fillScreen(BLACK);
+  }
   M5.Lcd.setTextSize(kTextSize);
   M5.Lcd.setTextDatum(TL_DATUM);
   M5.Lcd.setTextColor(WHITE, BLACK);
+  const int top = underTitleBar ? kHeaderLineY + 1 : 0;
   const int lineHeight = M5.Lcd.fontHeight() + 4;
   int blockWidth = 0;
   for (size_t line = 0; line < alignedLineCount; ++line) {
     blockWidth = max(blockWidth, static_cast<int>(M5.Lcd.textWidth(lines[line].c_str())));
   }
   const int blockX = (M5.Lcd.width() - blockWidth) / 2;
-  const int firstY = (M5.Lcd.height() - lineHeight * static_cast<int>(lineCount) + 4) / 2;
+  const int firstY = top + (M5.Lcd.height() - top - lineHeight * static_cast<int>(lineCount) + 4) / 2;
   for (size_t line = 0; line < lineCount; ++line) {
     const int x = line < alignedLineCount ? blockX : centeredX(lines[line]);
     for (size_t visible = 1; visible <= lines[line].length(); ++visible) {

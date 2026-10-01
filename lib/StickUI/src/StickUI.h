@@ -24,6 +24,7 @@
 #include "LogView.h"
 #include "Orientation.h"
 #include "Playbill.h"
+#include "RandomBag.h"
 #include "Sound.h"
 #include "Stage.h"
 #include "Text.h"

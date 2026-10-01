@@ -1,7 +1,7 @@
 // A StickUI stage with two shows:
-//   helloButtons  main: button-demo; upside-down shows sarcastic-random,
-//                 left-side-down shows cat-random, left-side-up shows dog-random
-//   pomodoro      a placeholder until the real show lands (see PlaceholderView.h)
+//   helloPets   main: button-demo; upside-down shows quote-random,
+//               left-side-down shows cat-random, left-side-up shows dog-random
+//   stickyPomo  a placeholder until the real show lands (see PlaceholderView.h)
 //
 // The stage itself provides the "config" show (configure-app, once at boot) and the "main
 // menu" show (pick a show, or reset). Holding both buttons in a show opens the main menu.
@@ -22,27 +22,27 @@ const bool kSoundConfigViewEnabled = false;
 ButtonDemoView buttonDemo;
 CatRandomView catRandom;
 DogRandomView dogRandom;
-SarcasticRandomView sarcasticRandom;
+QuoteRandomView quoteRandom;
 Scene mainScene("main");
-Show helloButtons("helloButtons");
+Show helloPets("helloPets");
 
 PlaceholderView pomodoroPlaceholder;
 Scene pomodoroScene("placeholder");
-Show pomodoro("pomodoro");
+Show stickyPomo("stickyPomo");
 
 }  // namespace
 
 void setup() {
   mainScene.addView(buttonDemo)
-      .showWhenHeld(Orientation::UpsideDown, sarcasticRandom)
+      .showWhenHeld(Orientation::UpsideDown, quoteRandom)
       .showWhenHeld(Orientation::LeftSideDown, catRandom)
       .showWhenHeld(Orientation::LeftSideUp, dogRandom);
-  helloButtons.addScene(mainScene);
+  helloPets.addScene(mainScene);
 
   pomodoroScene.addView(pomodoroPlaceholder);
-  pomodoro.addScene(pomodoroScene);
+  stickyPomo.addScene(pomodoroScene);
 
-  stage.addShow(helloButtons).addShow(pomodoro).setConfigureScene(configureAppScene(kSoundConfigViewEnabled));
+  stage.addShow(helloPets).addShow(stickyPomo).setConfigureScene(configureAppScene(kSoundConfigViewEnabled));
   stage.start();
 }
 
